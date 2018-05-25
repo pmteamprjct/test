@@ -2,6 +2,7 @@
 #include "Zombie.h"
 #include "Grid.h"
 #include <time.h>
+#include <Windows.h>
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -9,8 +10,10 @@ clock_t clock_start = clock();
 clock_t clock_end;
 bool GameOver = false;
 bool GameWin = false;
-int select = -1;
+//int select = -1;
+//Windows.h와 충돌하여 제외했습니다
 int debugger_int = 0;
+int life = 3;
 
 #ifndef WIDTH
 #define WIDTH 600		// window's width
@@ -41,17 +44,39 @@ Grid Path(0.5, 0, 0.5, 1, PATH_POINT_SIZE);
 Grid Flood;
 #define INIT_TERRITORY_LENGTH 3
 
+
 void init()
-{
+{	
 	Territory.setRec(GRID_WIDTH/2+ INIT_TERRITORY_LENGTH, GRID_WIDTH / 2 - INIT_TERRITORY_LENGTH, 
 		GRID_HEIGHT / 2 + INIT_TERRITORY_LENGTH, GRID_HEIGHT / 2 - INIT_TERRITORY_LENGTH, true);//초기 영토 지정
 	P1.setBR(GRID_WIDTH / 2 + INIT_TERRITORY_LENGTH, GRID_WIDTH / 2 - INIT_TERRITORY_LENGTH,
 		GRID_HEIGHT / 2 + INIT_TERRITORY_LENGTH, GRID_HEIGHT / 2 - INIT_TERRITORY_LENGTH);//초기 Boundary Rectangle 지정
+	
 	Zombies.push_back(Zombie(GRID_WIDTH / 4, GRID_HEIGHT / 4, 0, 1, 0));
 	Zombies.push_back(Zombie(GRID_WIDTH*3 / 4, GRID_HEIGHT / 4, 1, 0, 1));
 	Zombies.push_back(Zombie(GRID_WIDTH / 4, GRID_HEIGHT*3 / 4, 0, 0, 1));
 	Zombies.push_back(Zombie(GRID_WIDTH*3 / 4, GRID_HEIGHT*3 / 4, 1, 1, 0));
 }
+
+
+//새로 정의한 함수
+//게임 오버시 재도전 processSpecialKeys에서 호출
+void reset() {
+	GameOver = false;
+	GameWin = false;
+	debugger_int = 0;
+	life = 3;
+	score = 0;
+	Zombies.erase(Zombies.begin(), Zombies.end());
+	P1.setPos(GRID_WIDTH / 2, GRID_HEIGHT / 2);
+	P1.setDir(nulldir);
+	Path.empty();
+	Territory.empty();
+	init();
+}
+
+
+
 void renderBitmapCharacter(int x, int y,  void *font, string str)
 {
 	char *c;
@@ -75,16 +100,6 @@ void renderScene() {
 	for(int i = 0; i < k;i++)
 		Zombies[i].draw();
 	// make coordinate
-	if (GameOver)
-	{
-			glColor3f(1, 1, 1);
-			renderBitmapCharacter(GRID_WIDTH / 2, GRID_HEIGHT / 2, GLUT_BITMAP_TIMES_ROMAN_24, "GAME OVER");
-	}
-	if (GameWin)
-	{
-		glColor3f(1, 1, 1);
-		renderBitmapCharacter(GRID_WIDTH / 2, GRID_HEIGHT / 2, GLUT_BITMAP_TIMES_ROMAN_24, "GAME WIN");
-	}
 
 	glColor3f(1, 1, 1);
 	int score_percent = (score * 100) / (GRID_WIDTH*GRID_HEIGHT);
@@ -93,7 +108,24 @@ void renderScene() {
 	string scr = to_string(score_percent);
 	scr.append("%");
 	renderBitmapCharacter(GRID_WIDTH - 10, GRID_HEIGHT - 10, GLUT_BITMAP_TIMES_ROMAN_10, scr);
-	renderBitmapCharacter(10, GRID_HEIGHT - 10, GLUT_BITMAP_TIMES_ROMAN_10, to_string(debugger_int));
+	renderBitmapCharacter(10, GRID_HEIGHT - 10, GLUT_BITMAP_TIMES_ROMAN_10, "kill: " + to_string(debugger_int));
+	renderBitmapCharacter(10, GRID_HEIGHT - 11, GLUT_BITMAP_TIMES_ROMAN_10, "life: " + to_string(life));
+
+	// GameWin 상황에 글자가 제대로 표시되지 않는 것 같아 순서를 바꿔보았습니다.
+
+	if (GameOver)
+	{
+			glColor3f(1, 1, 1);
+			renderBitmapCharacter(GRID_WIDTH / 2, GRID_HEIGHT / 2, GLUT_BITMAP_TIMES_ROMAN_24, "GAME OVER");
+			renderBitmapCharacter(GRID_WIDTH / 2, GRID_HEIGHT / 2-1, GLUT_BITMAP_TIMES_ROMAN_10, "Press INSERT to retry");
+	}
+	if (GameWin)
+	{
+		glColor3f(1, 1, 1);
+		renderBitmapCharacter(GRID_WIDTH / 2, GRID_HEIGHT / 2, GLUT_BITMAP_TIMES_ROMAN_24, "GAME WIN");
+	}
+
+	
 
 	glutSwapBuffers();
 }
@@ -118,7 +150,12 @@ void processSpecialKey(int key, int x, int y)
 		if (!P1.is_backward(EAST))
 			P1.setDir(EAST);
 		break;
+	case GLUT_KEY_INSERT:
+		if (GameOver)
+			reset();
+		break;
 	}
+
 }
 
 
@@ -190,16 +227,36 @@ void processIdle()
 			}
 			if (P1.is_on(PATH))
 			{
-				GameOver = true;
+				(life>0) ? life-- : life = 0;  // 목숨 감소
+				if (life == 0)
+					GameOver = true;
+				else {
+					Path.empty();
+					P1.setPos(GRID_WIDTH / 2, GRID_HEIGHT / 2);
+					P1.setDir(nulldir);
+					Sleep(500); //Windows.h 함수
+					// 경로, 위치, 진행방향 초기화 후 0.5초 정지
+				}
+
 			}
 			if (Zombies[i].is_on(PATH))
 			{
-				GameOver = true;
+				(life>0) ? life-- : life = 0;  // 목숨 감소
+				if (life == 0)
+					GameOver = true;
+				else {
+					Path.empty();
+					P1.setPos(GRID_WIDTH / 2, GRID_HEIGHT / 2);
+					P1.setDir(nulldir);
+					Sleep(500); // Windows.h 함수
+					// 경로, 위치, 진행방향 초기화 후 0.5초 정지
+				}
 			}
 			if (Zombies[i].is_on(TERRITORY))
 			{
 				Zombies.erase(Zombies.begin()+i);
 				k = Zombies.size();
+				debugger_int++;
 			}
 		}
 		if (zombie_move_count == ZOMBIE_SPEED)
