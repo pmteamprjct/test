@@ -11,7 +11,6 @@ Zombie::Zombie(int x, int y, float r, float g, float b) : Character(x, y, r, g, 
 
 }
 
-
 void Zombie::setDir(int di)
 {
 	if (is_backward(di))
